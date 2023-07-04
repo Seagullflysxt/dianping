@@ -47,11 +47,11 @@ public class ShopController {
      * @param shop 商铺数据
      * @return 无
      */
-    @PutMapping
+    @PutMapping("/update/")
     public Result updateShop(@RequestBody Shop shop) {
         // 写入数据库
-        shopService.updateById(shop);
-        return Result.ok();
+        //shopService.updateById(shop);
+        return shopService.update(shop);
     }
 
     /**
