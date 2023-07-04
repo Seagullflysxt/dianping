@@ -25,7 +25,7 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
         //1 获取请求头里的token,前端放在了authorization域里
         String token = request.getHeader("authorization");
         //2 获取redis里token对应的用户
-        if (StrUtil.isBlank(token)) {
+        if (StrUtil.isBlank(token)) {//""
             //4 不存在,之前没登陆过，放行到下一个拦截器
             return true;
         }
