@@ -9,6 +9,8 @@ import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
 import com.hmdp.service.IShopService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmdp.utils.CacheClient;
+import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RedisData;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -30,30 +32,31 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     private StringRedisTemplate stringRedisTemplate;
 
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);//10个线程池
+
+    @Resource
+    private CacheClient cacheClient;
+
     @Override
     public Result queryById(Long id) {
         // 缓存穿透
         //Shop shop = queryWithPassThrough(id);
-
+        //lambda表达式  （传入的参数） -> 函数（参数） 返回值，id2 -> getById(id2), 可以简写成 this::getById
+        //Shop shop = cacheClient.
+        // queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
         //用互斥锁解决缓存击穿
         //Shop shop = queryWithMutex(id);
         //用逻辑过期解决缓存击穿
-        Shop shop = queryWithLogicalExpire(id);
+        //Shop shop = queryWithLogicalExpire(id);
+        Shop shop = cacheClient.
+                queryWithLogicalExpire(CACHE_SHOP_KEY, id, Shop.class, this::getById, 20L, TimeUnit.SECONDS);
         if (shop == null) {
             return Result.fail("店铺不存在");
         }
         return Result.ok(shop);
     }
 
-    private RedisData isRedisDataNonExpired(Long id) {//再次查询redis缓存，用于检查成功获取锁的时候缓存是否已经重建完成
-        String redisDateJson = stringRedisTemplate.opsForValue().get(CACHE_SHOP_KEY + id);
-        RedisData redisData = JSONUtil.toBean(redisDateJson, RedisData.class);
-        LocalDateTime expireTime = redisData.getExpireTime();
-        return redisData;
-    }
-
     //用逻辑过期解决缓存击穿
-    private Shop queryWithLogicalExpire (Long id) {
+    /*private Shop queryWithLogicalExpire (Long id) {
         //1 从redis缓存查询商铺信息
         //cache:shop:{id}
         String redisDateJson = stringRedisTemplate.opsForValue().get(CACHE_SHOP_KEY + id);
@@ -80,7 +83,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         boolean isLock = tryLock(lockKey);
         //6.2 判断获取锁是否成功
         if (isLock) {//dbcheck缓存过期,确保获取的不是另一个线程刚重建完成后释放的锁
-            RedisData newRedisData = isRedisDataNonExpired(id);
+            RedisData newRedisData = JSONUtil.toBean(stringRedisTemplate.opsForValue().get(CACHE_SHOP_KEY + id), redisData.getClass());
             LocalDateTime newExpire = newRedisData.getExpireTime();
             if (newExpire.isAfter(LocalDateTime.now())) {//获取锁的时候缓存已经被被人重建好了
                 //释放锁
@@ -100,10 +103,9 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
                 }
             });
         }
-
         //6.4 失败，返回过期的shop
         return shop;
-    }
+    }*/
 
     //用互斥锁解决缓存击穿
     private Shop queryWithMutex(Long id) {
@@ -157,7 +159,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         return shop;
     }
     //存储null值解决缓存穿透
-    private Shop queryWithPassThrough (Long id) {
+   /* private Shop queryWithPassThrough (Long id) {
         //1 从redis缓存查询商铺信息
         //cache:shop:{id}
         String shopJson = stringRedisTemplate.opsForValue().get(CACHE_SHOP_KEY + id);
@@ -188,7 +190,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
         //7 返回
         return shop;
-    }
+    }*/
     //尝试获取锁
     private boolean tryLock(String key) {
         Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
@@ -200,7 +202,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     }
 
     //逻辑过期,封装有逻辑过期时间的shop，来缓存预热
-    public void saveShop2Redis(Long id, Long expireSeconds) throws InterruptedException {
+    /*public void saveShop2Redis(Long id, Long expireSeconds) throws InterruptedException {
         //1 查询店铺
         Shop shop = getById(id);
         Thread.sleep(200);//模拟重建延时
@@ -210,7 +212,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         redisData.setExpireTime(LocalDateTime.now().plusSeconds(expireSeconds));
         //3 写入redis
         stringRedisTemplate.opsForValue().set(CACHE_SHOP_KEY + id, JSONUtil.toJsonStr(redisData));
-    }
+    }*/
     @Override
     @Transactional
     public Result update(Shop shop) {
