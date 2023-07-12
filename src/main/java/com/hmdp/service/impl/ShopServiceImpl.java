@@ -220,7 +220,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         if (id == null) {
             return Result.fail("店铺id不能为null");
         }
-        //1 更新数据库
+        //1 先更新数据库
         updateById(shop);
         //2 删除缓存
         stringRedisTemplate.delete(CACHE_SHOP_KEY + id);//如果出错抛异常就要回滚，整个update方法做的事情都要被撤销

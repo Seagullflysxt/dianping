@@ -30,7 +30,9 @@ public class MvcConfig implements WebMvcConfigurer {
                 ).order(1);
 
         //拦截所有请求，进行token刷新，拿到有效用户，保存到threadlocal,order越小，拦截器优先级越高，也就是这个先执行
-        registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).addPathPatterns("/**").order(0);
+        registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate))
+                .addPathPatterns("/**")//放行所有请求
+                .order(0);
 
     }
 }
