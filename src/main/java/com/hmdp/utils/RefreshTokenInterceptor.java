@@ -51,7 +51,7 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
-        //校验完毕，销毁用户信息，避免内存泄露
+        //页面关闭，销毁用户信息，避免内存泄露
         // 移除用户
         UserHolder.removeUser();
     }
